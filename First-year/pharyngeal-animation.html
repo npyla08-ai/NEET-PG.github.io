@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Pharyngeal Arches — Auto-Flow</title>
+<style>
+  :root{
+    --bg:#faf9f5;--card:#fff;--b:#e7e6e1;
+    --t:#141413;--ts:#6d6b67;--tm:#97958d;
+    --accent:#2a78d6;--accent-bg:#e7f1fb;
+    --purple:#534ab7;--purple-bg:#eeedfe;--purple-bd:#afa9ec;
+    --radius:12px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    background:var(--bg);color:var(--t);padding:20px;line-height:1.5;max-width:900px;margin:0 auto}
+  .header{text-align:center;margin-bottom:16px}
+  .header h1{font-size:20px;font-weight:600;margin-bottom:4px}
+  .header p{font-size:13px;color:var(--ts)}
+  .arch-row{display:flex;gap:10px;justify-content:center;margin-bottom:16px;flex-wrap:wrap}
+  .arch-btn{flex:1;min-width:110px;max-width:170px;background:var(--purple-bg);
+    border:1.5px solid var(--purple-bd);border-radius:var(--radius);
+    padding:14px 10px;cursor:pointer;transition:all .35s ease;text-align:center}
+  .arch-btn:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(83,74,183,.18)}
+  .arch-btn.active{background:var(--purple);color:#fff;border-color:var(--purple);
+    box-shadow:0 6px 18px rgba(83,74,183,.3);transform:translateY(-2px)}
+  .arch-btn.active .arch-lbl{color:#fff;opacity:.92}
+  .arch-num{font-size:22px;font-weight:700;display:block;margin-bottom:2px}
+  .arch-lbl{font-size:11px;color:var(--purple);letter-spacing:.5px;text-transform:uppercase;font-weight:600}
+  .controls{display:flex;gap:10px;justify-content:center;margin-bottom:16px;flex-wrap:wrap}
+  button.ctl{padding:10px 22px;border-radius:10px;border:none;font-weight:600;
+    cursor:pointer;font-size:14px;transition:all .2s;font-family:inherit}
+  .play{background:var(--accent);color:#fff}
+  .play:hover{background:#1e5fa8;transform:translateY(-1px)}
+  .pause{background:#c98500;color:#fff}
+  .pause:hover{background:#a66a00;transform:translateY(-1px)}
+  .reset{background:var(--card);color:var(--t);border:1px solid var(--b)}
+  .reset:hover{background:#f0efec}
+  .ctl:disabled{opacity:.5;cursor:not-allowed;transform:none}
+  .panel{background:var(--card);border-radius:var(--radius);padding:20px;border:1px solid var(--b)}
+  .panel h2{font-size:17px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+  .badge{font-size:11px;background:var(--accent-bg);color:var(--accent);
+    padding:3px 9px;border-radius:6px;font-weight:600;letter-spacing:.3px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
+  .field-lbl{font-size:11px;text-transform:uppercase;letter-spacing:1px;
+    color:var(--tm);margin-bottom:4px;font-weight:600}
+  .field-val{font-size:14px;color:var(--t);line-height:1.55}
+  .fade{animation:fade .4s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .progress{height:4px;background:#eeedfe;border-radius:4px;margin-top:16px;overflow:hidden}
+  .progress-fill{height:100%;background:var(--purple);width:0;transition:width .4s ease;border-radius:4px}
+  .status{text-align:center;font-size:12px;color:var(--tm);margin-top:8px}
+</style>
+</head>
+<body>
+  <div class="header">
+    <h1>Pharyngeal Arches</h1>
+    <p>Press Play to auto-flow through every arch — or click one directly</p>
+  </div>
+
+  <div class="arch-row" id="row"></div>
+
+  <div class="controls">
+    <button class="ctl play" id="playBtn">▶ Play</button>
+    <button class="ctl pause" id="pauseBtn" disabled>⏸ Pause</button>
+    <button class="ctl reset" id="resetBtn">↺ Reset</button>
+  </div>
+
+  <div class="panel">
+    <h2><span id="ttl"></span> <span class="badge" id="badge"></span></h2>
+    <div class="grid fade" id="content">
+      <div><div class="field-lbl">Nerve</div><div class="field-val" id="v-nerve"></div></div>
+      <div><div class="field-lbl">Muscles</div><div class="field-val" id="v-mus"></div></div>
+      <div><div class="field-lbl">Skeleton / Cartilage</div><div class="field-val" id="v-skel"></div></div>
+    </div>
+    <div class="progress"><div class="progress-fill" id="prog"></div></div>
+    <div class="status" id="status"></div>
+  </div>
+
+<script>
+const ORDER = [1,2,3,4,6];
+const D = {
+  1: {title:'1st Arch — Mandibular', badge:'CN V', nerve:'Trigeminal (CN V)',
+      mus:'Mastication, Mylohyoid, Anterior digastric, Tensor tympani, Tensor veli palatini',
+      skel:"Malleus, Incus, Mandible (Meckel's), Maxilla, Zygoma, Sphenomandibular ligament"},
+  2: {title:'2nd Arch — Hyoid', badge:'CN VII', nerve:'Facial (CN VII)',
+      mus:'Facial expression, Stapedius, Stylohyoid, Posterior digastric, Buccinator, Platysma',
+      skel:"Stapes, Styloid process, Lesser horn of hyoid (Reichert's), Stylohyoid ligament"},
+  3: {title:'3rd Arch', badge:'CN IX', nerve:'Glossopharyngeal (CN IX)',
+      mus:'Stylopharyngeus (only muscle)',
+      skel:'Greater horn and body of hyoid'},
+  4: {title:'4th Arch', badge:'CN X (SL)', nerve:'Vagus — Superior laryngeal branch',
+      mus:'Pharyngeal constrictors, Cricothyroid, Levator palatini',
+      skel:'Thyroid cartilage, Epiglottis, Superior laryngeal cartilages'},
+  6: {title:'6th Arch', badge:'CN X (RL)', nerve:'Vagus — Recurrent laryngeal branch',
+      mus:'All intrinsic laryngeal muscles EXCEPT Cricothyroid',
+      skel:'Cricoid, Arytenoids, Inferior laryngeal cartilages'}
+};
+
+const STEP_MS = 3200;
+let playing = false, paused = false;
+let idx = 0;
+let stepTimer = null;
+let remaining = 0;
+let tickStart = 0;
+
+const row = document.getElementById('row');
+ORDER.forEach(n=>{
+  const b = document.createElement('div');
+  b.className = 'arch-btn';
+  b.dataset.n = n;
+  const suffix = {1:'st',2:'nd',3:'rd'}[n] || 'th';
+  b.innerHTML = `<span class="arch-num">${n}${suffix}</span><span class="arch-lbl">${D[n].badge}</span>`;
+  b.onclick = ()=>{ stop(); pick(n, true); };
+  row.appendChild(b);
+});
+
+function pick(n, isManual){
+  const d = D[n];
+  document.getElementById('ttl').textContent = d.title;
+  document.getElementById('badge').textContent = d.badge;
+  document.getElementById('v-nerve').textContent = d.nerve;
+  document.getElementById('v-mus').textContent = d.mus;
+  document.getElementById('v-skel').textContent = d.skel;
+  const c = document.getElementById('content');
+  c.classList.remove('fade'); void c.offsetWidth; c.classList.add('fade');
+  document.querySelectorAll('.arch-btn').forEach(b=>{
+    b.classList.toggle('active', +b.dataset.n === n);
+  });
+  const i = ORDER.indexOf(n);
+  document.getElementById('prog').style.width = ((i+1)/ORDER.length*100)+'%';
+  document.getElementById('status').textContent = `Step ${i+1} of ${ORDER.length}`;
+}
+
+function tick(){
+  if(!playing || paused) return;
+  tickStart = Date.now();
+  stepTimer = setTimeout(()=>{
+    idx++;
+    if(idx >= ORDER.length){
+      stop();
+      document.getElementById('status').textContent = 'Complete ✓';
+      return;
+    }
+    pick(ORDER[idx]);
+    tick();
+  }, remaining || STEP_MS);
+  remaining = 0;
+}
+
+function start(){
+  if(playing) return;
+  playing = true; paused = false;
+  document.getElementById('playBtn').disabled = true;
+  document.getElementById('pauseBtn').disabled = false;
+  document.getElementById('pauseBtn').textContent = '⏸ Pause';
+  if(idx >= ORDER.length){ idx = 0; }
+  pick(ORDER[idx]);
+  remaining = STEP_MS;
+  tick();
+}
+
+function pauseToggle(){
+  if(!playing) return;
+  if(!paused){
+    paused = true;
+    clearTimeout(stepTimer);
+    remaining -= (Date.now() - tickStart);
+    document.getElementById('pauseBtn').textContent = '▶ Resume';
+    document.getElementById('status').textContent = 'Paused';
+  } else {
+    paused = false;
+    document.getElementById('pauseBtn').textContent = '⏸ Pause';
+    tick();
+  }
+}
+
+function stop(){
+  playing = false; paused = false;
+  clearTimeout(stepTimer);
+  document.getElementById('playBtn').disabled = false;
+  document.getElementById('pauseBtn').disabled = true;
+}
+
+function reset(){
+  stop();
+  idx = 0;
+  remaining = 0;
+  document.getElementById('prog').style.width = '0';
+  document.getElementById('status').textContent = '';
+  document.getElementById('playBtn').textContent = '▶ Play';
+  document.getElementById('pauseBtn').textContent = '⏸ Pause';
+  pick(1);
+}
+
+document.getElementById('playBtn').onclick = ()=>{
+  if(!playing){
+    if(idx >= ORDER.length) reset();
+    start();
+  }
+};
+document.getElementById('pauseBtn').onclick = pauseToggle;
+document.getElementById('resetBtn').onclick = reset;
+
+pick(1);
+</script>
+</body>
+</html>
